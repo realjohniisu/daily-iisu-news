@@ -3,7 +3,6 @@ import json
 import re
 import html
 import time
-from html.parser import HTMLParser
 
 PLAYLIST_ID = "PLQgwceUpKnfA"
 OUTPUT_FILE = "episodes.json"
@@ -12,31 +11,6 @@ PLAYLIST_URL = (
     "https://www.youtube.com/playlist?list="
     + PLAYLIST_ID
 )
-
-
-class MetaParser(HTMLParser):
-    def __init__(self):
-        super().__init__()
-        self.meta = []
-        self.title = ""
-        self.in_title = False
-
-    def handle_starttag(self, tag, attrs):
-        attrs = dict(attrs)
-
-        if tag.lower() == "meta":
-            self.meta.append(attrs)
-
-        elif tag.lower() == "title":
-            self.in_title = True
-
-    def handle_endtag(self, tag):
-        if tag.lower() == "title":
-            self.in_title = False
-
-    def handle_data(self, data):
-        if self.in_title:
-            self.title += data
 
 
 def youtube_request(url):
@@ -65,6 +39,7 @@ def youtube_request(url):
             request,
             timeout=20
         ) as response:
+
             return response.read().decode(
                 "utf-8",
                 errors="ignore"
@@ -123,26 +98,23 @@ def extract_video_ids(page):
     return video_ids
 
 
-def parse_page(page):
-    parser = MetaParser()
+def extract_meta(page, attribute, value):
+    patterns = [
+        rf'<meta[^>]+{attribute}\s*=\s*["\']{re.escape(value)}["\'][^>]+content\s*=\s*["\']([^"\']*)["\']',
+        rf'<meta[^>]+content\s*=\s*["\']([^"\']*)["\'][^>]+{attribute}\s*=\s*["\']{re.escape(value)}["\']'
+    ]
 
-    parser.feed(page)
+    for pattern in patterns:
+        match = re.search(
+            pattern,
+            page,
+            re.IGNORECASE
+        )
 
-    return parser
-
-
-def get_meta(parser, key, value):
-    for meta in parser.meta:
-        if (
-            meta.get(key, "").lower()
-            == value.lower()
-        ):
-            content = meta.get("content")
-
-            if content:
-                return html.unescape(
-                    content
-                ).strip()
+        if match:
+            return html.unescape(
+                match.group(1)
+            ).strip()
 
     return ""
 
@@ -172,16 +144,15 @@ def get_video_metadata(video_id):
                 f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg"
         }
 
-    parser = parse_page(page)
+    title = ""
+    date = ""
+    thumbnail = ""
 
-    title = get_meta(
-        parser,
+    title = extract_meta(
+        page,
         "property",
         "og:title"
     )
-
-    if not title:
-        title = parser.title.strip()
 
     if not title:
         match = re.search(
@@ -193,27 +164,39 @@ def get_video_metadata(video_id):
         if match:
             title = html.unescape(
                 match.group(1)
-            )
+            ).strip()
+
+    if not title:
+        match = re.search(
+            r"<title[^>]*>(.*?)</title>",
+            page,
+            re.IGNORECASE | re.DOTALL
+        )
+
+        if match:
+            title = html.unescape(
+                match.group(1)
+            ).strip()
+
+            title = re.sub(
+                r"\s*-\s*YouTube\s*$",
+                "",
+                title,
+                flags=re.IGNORECASE
+            ).strip()
 
     if not title:
         title = "Daily iiSU News"
 
-    title = re.sub(
-        r"\s*-\s*YouTube\s*$",
-        "",
-        title,
-        flags=re.IGNORECASE
-    ).strip()
-
-    date = get_meta(
-        parser,
+    date = extract_meta(
+        page,
         "itemprop",
         "datePublished"
     )
 
     if not date:
-        date = get_meta(
-            parser,
+        date = extract_meta(
+            page,
             "itemprop",
             "uploadDate"
         )
@@ -254,8 +237,8 @@ def get_video_metadata(video_id):
     else:
         date = ""
 
-    thumbnail = get_meta(
-        parser,
+    thumbnail = extract_meta(
+        page,
         "property",
         "og:image"
     )
@@ -279,6 +262,14 @@ def get_video_metadata(video_id):
         number = int(
             number_match.group(1)
         )
+
+    print(
+        f"[YouTube] Title: {title}"
+    )
+
+    print(
+        f"[YouTube] Date: {date}"
+    )
 
     return {
         "number": number,
@@ -314,6 +305,7 @@ def build_episode_database():
     episodes = []
 
     for index, video_id in enumerate(video_ids):
+
         episode = get_video_metadata(
             video_id
         )
