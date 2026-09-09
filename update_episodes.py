@@ -3,6 +3,7 @@ import json
 import re
 import html
 import time
+from html.parser import HTMLParser
 
 PLAYLIST_ID = "PLQgwceUpKnfA"
 OUTPUT_FILE = "episodes.json"
@@ -11,6 +12,31 @@ PLAYLIST_URL = (
     "https://www.youtube.com/playlist?list="
     + PLAYLIST_ID
 )
+
+
+class MetaParser(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.meta = []
+        self.title = ""
+        self.in_title = False
+
+    def handle_starttag(self, tag, attrs):
+        attrs = dict(attrs)
+
+        if tag.lower() == "meta":
+            self.meta.append(attrs)
+
+        elif tag.lower() == "title":
+            self.in_title = True
+
+    def handle_endtag(self, tag):
+        if tag.lower() == "title":
+            self.in_title = False
+
+    def handle_data(self, data):
+        if self.in_title:
+            self.title += data
 
 
 def youtube_request(url):
@@ -22,10 +48,13 @@ def youtube_request(url):
                 "AppleWebKit/537.36 "
                 "(KHTML, like Gecko) "
                 "Chrome/140.0.0.0 Safari/537.36",
+
             "Accept":
                 "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+
             "Accept-Language":
                 "en-US,en;q=0.9",
+
             "Cookie":
                 "CONSENT=YES+cb"
         }
@@ -42,7 +71,11 @@ def youtube_request(url):
             )
 
     except Exception as error:
-        print("[YouTube] Request failed:", error)
+        print(
+            "[YouTube] Request failed:",
+            error
+        )
+
         return None
 
 
@@ -50,7 +83,9 @@ def fetch_playlist():
     print()
     print("[YouTube] Downloading playlist...")
 
-    page = youtube_request(PLAYLIST_URL)
+    page = youtube_request(
+        PLAYLIST_URL
+    )
 
     if not page:
         return None
@@ -88,48 +123,26 @@ def extract_video_ids(page):
     return video_ids
 
 
-def get_meta_content(page, attribute, value):
-    pattern = (
-        r'<meta[^>]*'
-        + re.escape(attribute)
-        + r'\s*=\s*["\']'
-        + re.escape(value)
-        + r'["\'][^>]*'
-        r'content\s*=\s*["\']([^"\']+)["\']'
-        r'[^>]*>'
-    )
+def parse_page(page):
+    parser = MetaParser()
 
-    match = re.search(
-        pattern,
-        page,
-        re.IGNORECASE
-    )
+    parser.feed(page)
 
-    if match:
-        return html.unescape(
-            match.group(1)
-        )
+    return parser
 
-    pattern = (
-        r'<meta[^>]*'
-        r'content\s*=\s*["\']([^"\']+)["\']'
-        r'[^>]*'
-        + re.escape(attribute)
-        + r'\s*=\s*["\']'
-        + re.escape(value)
-        + r'["\'][^>]*>'
-    )
 
-    match = re.search(
-        pattern,
-        page,
-        re.IGNORECASE
-    )
+def get_meta(parser, key, value):
+    for meta in parser.meta:
+        if (
+            meta.get(key, "").lower()
+            == value.lower()
+        ):
+            content = meta.get("content")
 
-    if match:
-        return html.unescape(
-            match.group(1)
-        )
+            if content:
+                return html.unescape(
+                    content
+                ).strip()
 
     return ""
 
@@ -144,7 +157,9 @@ def get_video_metadata(video_id):
         f"[YouTube] Reading {video_id}..."
     )
 
-    page = youtube_request(video_url)
+    page = youtube_request(
+        video_url
+    )
 
     if not page:
         return {
@@ -157,11 +172,16 @@ def get_video_metadata(video_id):
                 f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg"
         }
 
-    title = get_meta_content(
-        page,
+    parser = parse_page(page)
+
+    title = get_meta(
+        parser,
         "property",
         "og:title"
     )
+
+    if not title:
+        title = parser.title.strip()
 
     if not title:
         match = re.search(
@@ -185,23 +205,18 @@ def get_video_metadata(video_id):
         flags=re.IGNORECASE
     ).strip()
 
-    date = ""
-
-    match = re.search(
-        r'<meta[^>]*itemprop\s*=\s*["\']datePublished["\'][^>]*content\s*=\s*["\']([^"\']+)["\']',
-        page,
-        re.IGNORECASE
+    date = get_meta(
+        parser,
+        "itemprop",
+        "datePublished"
     )
 
-    if not match:
-        match = re.search(
-            r'<meta[^>]*content\s*=\s*["\']([^"\']+)["\'][^>]*itemprop\s*=\s*["\']datePublished["\']',
-            page,
-            re.IGNORECASE
+    if not date:
+        date = get_meta(
+            parser,
+            "itemprop",
+            "uploadDate"
         )
-
-    if match:
-        date = match.group(1)
 
     if not date:
         match = re.search(
@@ -239,8 +254,8 @@ def get_video_metadata(video_id):
     else:
         date = ""
 
-    thumbnail = get_meta_content(
-        page,
+    thumbnail = get_meta(
+        parser,
         "property",
         "og:image"
     )
@@ -282,25 +297,33 @@ def build_episode_database():
         print(
             "[YouTube] Could not download playlist."
         )
+
         return []
 
-    video_ids = extract_video_ids(page)
+    video_ids = extract_video_ids(
+        page
+    )
 
     if not video_ids:
         print(
             "[YouTube] No videos found."
         )
+
         return []
 
     episodes = []
 
     for index, video_id in enumerate(video_ids):
-        episode = get_video_metadata(video_id)
+        episode = get_video_metadata(
+            video_id
+        )
 
         if episode["number"] is None:
             episode["number"] = index + 1
 
-        episodes.append(episode)
+        episodes.append(
+            episode
+        )
 
         time.sleep(0.15)
 
@@ -318,6 +341,7 @@ def save_database(episodes):
         "w",
         encoding="utf-8"
     ) as file:
+
         json.dump(
             episodes,
             file,
@@ -339,12 +363,16 @@ def main():
         print(
             "ERROR: No episodes were found."
         )
+
         print(
             "episodes.json was not changed."
         )
+
         return
 
-    save_database(episodes)
+    save_database(
+        episodes
+    )
 
     print()
     print(
@@ -362,7 +390,10 @@ def main():
         )
 
     print()
-    print("Done!")
+    print(
+        "Done!"
+    )
+
     print()
 
 
