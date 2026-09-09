@@ -5,7 +5,6 @@ import html
 import time
 
 PLAYLIST_ID = "PLQgwceUpKnfA"
-
 OUTPUT_FILE = "episodes.json"
 
 PLAYLIST_URL = (
@@ -23,13 +22,10 @@ def youtube_request(url):
                 "AppleWebKit/537.36 "
                 "(KHTML, like Gecko) "
                 "Chrome/140.0.0.0 Safari/537.36",
-
             "Accept":
                 "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-
             "Accept-Language":
                 "en-US,en;q=0.9",
-
             "Cookie":
                 "CONSENT=YES+cb"
         }
@@ -46,11 +42,7 @@ def youtube_request(url):
             )
 
     except Exception as error:
-        print(
-            "[YouTube] Request failed:",
-            error
-        )
-
+        print("[YouTube] Request failed:", error)
         return None
 
 
@@ -58,9 +50,7 @@ def fetch_playlist():
     print()
     print("[YouTube] Downloading playlist...")
 
-    page = youtube_request(
-        PLAYLIST_URL
-    )
+    page = youtube_request(PLAYLIST_URL)
 
     if not page:
         return None
@@ -98,16 +88,15 @@ def extract_video_ids(page):
     return video_ids
 
 
-def get_attribute(page, attribute, value):
+def get_meta_content(page, attribute, value):
     pattern = (
-        r"<meta\b"
-        r"(?=[^>]*\b"
-        + attribute
+        r'<meta[^>]*'
+        + re.escape(attribute)
         + r'\s*=\s*["\']'
         + re.escape(value)
-        + r'["\'])'
-        r'(?=[^>]*\bcontent\s*=\s*["\']([^"\']+)["\'])'
-        r"[^>]*>"
+        + r'["\'][^>]*'
+        r'content\s*=\s*["\']([^"\']+)["\']'
+        r'[^>]*>'
     )
 
     match = re.search(
@@ -122,58 +111,13 @@ def get_attribute(page, attribute, value):
         )
 
     pattern = (
-        r"<meta\b"
-        r"(?=[^>]*\bcontent\s*=\s*["\']([^"\']+)["\'])"
-        r"(?=[^>]*\b"
-        + attribute
+        r'<meta[^>]*'
+        r'content\s*=\s*["\']([^"\']+)["\']'
+        r'[^>]*'
+        + re.escape(attribute)
         + r'\s*=\s*["\']'
         + re.escape(value)
-        + r'["\'])'
-        r"[^>]*>"
-    )
-
-    match = re.search(
-        pattern,
-        page,
-        re.IGNORECASE
-    )
-
-    if match:
-        return html.unescape(
-            match.group(1)
-        )
-
-    return ""
-
-
-def get_itemprop(page, value):
-    pattern = (
-        r"<meta\b"
-        r"(?=[^>]*\bitemprop\s*=\s*["\']"
-        + re.escape(value)
-        + r'["\'])'
-        r'(?=[^>]*\bcontent\s*=\s*["\']([^"\']+)["\'])'
-        r"[^>]*>"
-    )
-
-    match = re.search(
-        pattern,
-        page,
-        re.IGNORECASE
-    )
-
-    if match:
-        return html.unescape(
-            match.group(1)
-        )
-
-    pattern = (
-        r"<meta\b"
-        r"(?=[^>]*\bcontent\s*=\s*["\']([^"\']+)["\'])"
-        r"(?=[^>]*\bitemprop\s*=\s*["\']"
-        + re.escape(value)
-        + r'["\'])'
-        r"[^>]*>"
+        + r'["\'][^>]*>'
     )
 
     match = re.search(
@@ -200,9 +144,7 @@ def get_video_metadata(video_id):
         f"[YouTube] Reading {video_id}..."
     )
 
-    page = youtube_request(
-        video_url
-    )
+    page = youtube_request(video_url)
 
     if not page:
         return {
@@ -215,30 +157,11 @@ def get_video_metadata(video_id):
                 f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg"
         }
 
-    title = get_attribute(
+    title = get_meta_content(
         page,
         "property",
         "og:title"
     )
-
-    if not title:
-        title = get_attribute(
-            page,
-            "name",
-            "title"
-        )
-
-    if not title:
-        match = re.search(
-            r"<title[^>]*>(.*?)</title>",
-            page,
-            re.IGNORECASE | re.DOTALL
-        )
-
-        if match:
-            title = html.unescape(
-                match.group(1)
-            ).strip()
 
     if not title:
         match = re.search(
@@ -250,7 +173,7 @@ def get_video_metadata(video_id):
         if match:
             title = html.unescape(
                 match.group(1)
-            ).strip()
+            )
 
     if not title:
         title = "Daily iiSU News"
@@ -262,16 +185,23 @@ def get_video_metadata(video_id):
         flags=re.IGNORECASE
     ).strip()
 
-    date = get_itemprop(
+    date = ""
+
+    match = re.search(
+        r'<meta[^>]*itemprop\s*=\s*["\']datePublished["\'][^>]*content\s*=\s*["\']([^"\']+)["\']',
         page,
-        "datePublished"
+        re.IGNORECASE
     )
 
-    if not date:
-        date = get_itemprop(
+    if not match:
+        match = re.search(
+            r'<meta[^>]*content\s*=\s*["\']([^"\']+)["\'][^>]*itemprop\s*=\s*["\']datePublished["\']',
             page,
-            "uploadDate"
+            re.IGNORECASE
         )
+
+    if match:
+        date = match.group(1)
 
     if not date:
         match = re.search(
@@ -309,7 +239,7 @@ def get_video_metadata(video_id):
     else:
         date = ""
 
-    thumbnail = get_attribute(
+    thumbnail = get_meta_content(
         page,
         "property",
         "og:image"
@@ -352,33 +282,25 @@ def build_episode_database():
         print(
             "[YouTube] Could not download playlist."
         )
-
         return []
 
-    video_ids = extract_video_ids(
-        page
-    )
+    video_ids = extract_video_ids(page)
 
     if not video_ids:
         print(
             "[YouTube] No videos found."
         )
-
         return []
 
     episodes = []
 
     for index, video_id in enumerate(video_ids):
-        episode = get_video_metadata(
-            video_id
-        )
+        episode = get_video_metadata(video_id)
 
         if episode["number"] is None:
             episode["number"] = index + 1
 
-        episodes.append(
-            episode
-        )
+        episodes.append(episode)
 
         time.sleep(0.15)
 
@@ -417,16 +339,12 @@ def main():
         print(
             "ERROR: No episodes were found."
         )
-
         print(
             "episodes.json was not changed."
         )
-
         return
 
-    save_database(
-        episodes
-    )
+    save_database(episodes)
 
     print()
     print(
@@ -444,10 +362,7 @@ def main():
         )
 
     print()
-    print(
-        "Done!"
-    )
-
+    print("Done!")
     print()
 
 
