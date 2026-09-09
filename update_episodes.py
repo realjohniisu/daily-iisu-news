@@ -1,4 +1,5 @@
 import urllib.request
+import urllib.parse
 import json
 import re
 import html
@@ -13,7 +14,7 @@ PLAYLIST_URL = (
 )
 
 
-def youtube_request(url):
+def request_json(url):
     request = urllib.request.Request(
         url,
         headers={
@@ -22,13 +23,47 @@ def youtube_request(url):
                 "AppleWebKit/537.36 "
                 "(KHTML, like Gecko) "
                 "Chrome/140.0.0.0 Safari/537.36",
+            "Accept":
+                "application/json,text/plain,*/*",
+            "Accept-Language":
+                "en-US,en;q=0.9"
+        }
+    )
 
+    try:
+        with urllib.request.urlopen(
+            request,
+            timeout=20
+        ) as response:
+            return json.loads(
+                response.read().decode(
+                    "utf-8",
+                    errors="ignore"
+                )
+            )
+
+    except Exception as error:
+        print(
+            "[Request] Failed:",
+            error
+        )
+
+        return None
+
+
+def request_text(url):
+    request = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent":
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 "
+                "(KHTML, like Gecko) "
+                "Chrome/140.0.0.0 Safari/537.36",
             "Accept":
                 "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-
             "Accept-Language":
                 "en-US,en;q=0.9",
-
             "Cookie":
                 "CONSENT=YES+cb"
         }
@@ -39,7 +74,6 @@ def youtube_request(url):
             request,
             timeout=20
         ) as response:
-
             return response.read().decode(
                 "utf-8",
                 errors="ignore"
@@ -58,7 +92,7 @@ def fetch_playlist():
     print()
     print("[YouTube] Downloading playlist...")
 
-    page = youtube_request(
+    page = request_text(
         PLAYLIST_URL
     )
 
@@ -98,219 +132,163 @@ def extract_video_ids(page):
     return video_ids
 
 
-def get_meta_content(page, name, value):
-    tags = re.findall(
-        r"<meta\b[^>]*>",
-        page,
-        re.IGNORECASE
+def get_oembed(video_id):
+    video_url = (
+        "https://www.youtube.com/watch?v="
+        + video_id
     )
 
-    for tag in tags:
-        name_match = re.search(
-            rf'\b{name}\s*=\s*["\']{re.escape(value)}["\']',
-            tag,
-            re.IGNORECASE
-        )
-
-        if not name_match:
-            continue
-
-        content_match = re.search(
-            r'\bcontent\s*=\s*["\']([^"\']*)["\']',
-            tag,
-            re.IGNORECASE
-        )
-
-        if content_match:
-            return html.unescape(
-                content_match.group(1)
-            ).strip()
-
-    return ""
-
-
-def get_json_title(page, video_id):
-    patterns = [
-        rf'"videoId"\s*:\s*"{re.escape(video_id)}"\s*,\s*"title"\s*:\s*"([^"]+)"',
-
-        rf'"videoId"\s*:\s*"{re.escape(video_id)}".{{0,1000}}?"title"\s*:\s*"([^"]+)"'
-    ]
-
-    for pattern in patterns:
-        match = re.search(
-            pattern,
-            page,
-            re.IGNORECASE | re.DOTALL
-        )
-
-        if match:
-            return html.unescape(
-                match.group(1)
-            ).strip()
-
-    return ""
-
-
-def get_json_date(page):
-    patterns = [
-        r'"publishDate"\s*:\s*"([^"]+)"',
-        r'"uploadDate"\s*:\s*"([^"]+)"'
-    ]
-
-    for pattern in patterns:
-        match = re.search(
-            pattern,
-            page,
-            re.IGNORECASE
-        )
-
-        if match:
-            return match.group(1).strip()
-
-    return ""
-
-
-def clean_title(title):
-    title = html.unescape(
-        title
-    ).strip()
-
-    title = re.sub(
-        r"\s*-\s*YouTube\s*$",
-        "",
-        title,
-        flags=re.IGNORECASE
-    ).strip()
-
-    return title
-
-
-def clean_date(date):
-    match = re.search(
-        r"(20\d{2})-(\d{1,2})-(\d{1,2})",
-        date
+    encoded_url = urllib.parse.quote(
+        video_url,
+        safe=""
     )
 
-    if not match:
-        return ""
-
-    return (
-        match.group(1)
-        + "-"
-        + match.group(2).zfill(2)
-        + "-"
-        + match.group(3).zfill(2)
+    oembed_url = (
+        "https://www.youtube.com/oembed"
+        "?url="
+        + encoded_url
+        + "&format=json"
     )
 
+    print(
+        f"[YouTube] Getting oEmbed data for {video_id}..."
+    )
 
-def get_video_metadata(video_id):
+    data = request_json(
+        oembed_url
+    )
+
+    if not data:
+        print(
+            "[YouTube] oEmbed request failed."
+        )
+
+        return None
+
+    title = data.get(
+        "title",
+        ""
+    )
+
+    thumbnail = data.get(
+        "thumbnail_url",
+        ""
+    )
+
+    if title:
+        print(
+            f"[YouTube] oEmbed title: {title}"
+        )
+
+    return {
+        "title": title.strip(),
+        "thumbnail": thumbnail.strip()
+    }
+
+
+def get_publish_date(video_id):
     video_url = (
         "https://www.youtube.com/watch?v="
         + video_id
     )
 
     print(
-        f"[YouTube] Reading {video_id}..."
+        f"[YouTube] Getting publish date for {video_id}..."
     )
 
-    page = youtube_request(
+    page = request_text(
         video_url
     )
 
     if not page:
-        return {
-            "number": None,
-            "title": "Daily iiSU News",
-            "date": "",
-            "url": video_url,
-            "videoId": video_id,
-            "thumbnail":
-                f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg"
-        }
+        return ""
 
-    title = get_meta_content(
-        page,
-        "property",
-        "og:title"
-    )
+    patterns = [
+        r'<meta[^>]+itemprop=["\']datePublished["\'][^>]+content=["\']([^"\']+)["\'][^>]*>',
 
-    if title:
-        print(
-            "[YouTube] Found title from og:title."
-        )
+        r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+itemprop=["\']datePublished["\'][^>]*>',
 
-    if not title:
-        title = get_json_title(
+        r'"publishDate"\s*:\s*"([^"]+)"'
+    ]
+
+    for pattern in patterns:
+        match = re.search(
+            pattern,
             page,
-            video_id
+            re.IGNORECASE
         )
 
-        if title:
+        if not match:
+            continue
+
+        date_value = html.unescape(
+            match.group(1)
+        ).strip()
+
+        date_match = re.search(
+            r"(20\d{2})-(\d{1,2})-(\d{1,2})",
+            date_value
+        )
+
+        if date_match:
+            date = (
+                date_match.group(1)
+                + "-"
+                + date_match.group(2).zfill(2)
+                + "-"
+                + date_match.group(3).zfill(2)
+            )
+
             print(
-                "[YouTube] Found title from videoDetails."
+                f"[YouTube] Publish date: {date}"
             )
+
+            return date
+
+    print(
+        "[YouTube] Publish date not found."
+    )
+
+    return ""
+
+
+def get_episode_number(title):
+    match = re.search(
+        r"\b(?:day|episode)\s*#?\s*(\d+)\b",
+        title,
+        re.IGNORECASE
+    )
+
+    if match:
+        return int(
+            match.group(1)
+        )
+
+    return None
+
+
+def get_video_metadata(video_id, playlist_position):
+    video_url = (
+        "https://www.youtube.com/watch?v="
+        + video_id
+    )
+
+    oembed = get_oembed(
+        video_id
+    )
+
+    if oembed:
+        title = oembed["title"]
+        thumbnail = oembed["thumbnail"]
+    else:
+        title = ""
+        thumbnail = ""
 
     if not title:
-        title_match = re.search(
-            r"<title\b[^>]*>(.*?)</title>",
-            page,
-            re.IGNORECASE | re.DOTALL
+        title = (
+            "Daily iiSU News: Day "
+            + str(playlist_position)
         )
-
-        if title_match:
-            title = clean_title(
-                title_match.group(1)
-            )
-
-            if title:
-                print(
-                    "[YouTube] Found title from page title."
-                )
-
-    title = clean_title(
-        title
-    )
-
-    if not title:
-        title = "Daily iiSU News"
-
-    date = get_meta_content(
-        page,
-        "itemprop",
-        "datePublished"
-    )
-
-    if not date:
-        date = get_meta_content(
-            page,
-            "itemprop",
-            "uploadDate"
-        )
-
-    if date:
-        print(
-            "[YouTube] Found date from metadata."
-        )
-
-    if not date:
-        date = get_json_date(
-            page
-        )
-
-        if date:
-            print(
-                "[YouTube] Found date from JSON."
-            )
-
-    date = clean_date(
-        date
-    )
-
-    thumbnail = get_meta_content(
-        page,
-        "property",
-        "og:image"
-    )
 
     if not thumbnail:
         thumbnail = (
@@ -319,30 +297,16 @@ def get_video_metadata(video_id):
             + "/hqdefault.jpg"
         )
 
-    number = None
-
-    number_match = re.search(
-        r"\b(?:day|episode)\s*#?\s*(\d+)\b",
-        title,
-        re.IGNORECASE
+    date = get_publish_date(
+        video_id
     )
 
-    if number_match:
-        number = int(
-            number_match.group(1)
-        )
-
-    print(
-        f"[YouTube] Title: {title}"
+    number = get_episode_number(
+        title
     )
 
-    print(
-        f"[YouTube] Date: {date}"
-    )
-
-    print(
-        f"[YouTube] Number: {number}"
-    )
+    if number is None:
+        number = playlist_position
 
     return {
         "number": number,
@@ -377,22 +341,26 @@ def build_episode_database():
 
     episodes = []
 
-    for index, video_id in enumerate(
-        video_ids
+    for position, video_id in enumerate(
+        video_ids,
+        start=1
     ):
-        episode = get_video_metadata(
-            video_id
+        print()
+        print(
+            f"[Episode {position}] {video_id}"
         )
 
-        if episode["number"] is None:
-            episode["number"] = index + 1
+        episode = get_video_metadata(
+            video_id,
+            position
+        )
 
         episodes.append(
             episode
         )
 
         time.sleep(
-            0.15
+            0.5
         )
 
     episodes.sort(
@@ -409,7 +377,6 @@ def save_database(episodes):
         "w",
         encoding="utf-8"
     ) as file:
-
         json.dump(
             episodes,
             file,
