@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Daily iiSU News — the complete episode archive.">
+    <meta name="theme-color" content="#070709">
+
+    <title>Daily iiSU News</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet"
+    >
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <header>
+        <a href="#" class="site-logo" aria-label="Daily iiSU News home">
+            <img src="iiSU News.svg" alt="iiSU News">
+        </a>
+
+        <div class="header-actions">
+            <a
+                class="header-button collab-button"
+                href="https://docs.google.com/forms/d/1J_VnDqJd5t8k5tyopfCfAK3xqA5ausCHhVkE-qyyHCI/viewform"
+                target="_blank"
+                rel="noopener noreferrer"
+            >
+                <span class="button-spark">✦</span>
+                Collab!
+            </a>
+
+            <a
+                class="header-button discord-button"
+                href="https://discord.gg/NWDuSzPr9"
+                target="_blank"
+                rel="noopener noreferrer"
+            >
+                <span class="discord-icon">
+                    <img src="robot.webp" alt="">
+                </span>
+                <span class="discord-label">Join Discord</span>
+            </a>
+        </div>
+    </header>
+
+    <main>
+        <section class="hero">
+            <h1>Daily iiSU News</h1>
+            <p>The complete archive of Daily iiSU News. Pick a day to watch an episode.</p>
+        </section>
+
+        <section class="glass-panel calendar-section" aria-label="Episode calendar">
+            <div class="calendar-header">
+                <h2 id="month-year">September 2026</h2>
+
+                <div class="calendar-controls" aria-label="Calendar navigation">
+                    <button id="previous-month" type="button" aria-label="Previous month">
+                        ‹
+                    </button>
+
+                    <button id="today-button" type="button" aria-label="Go to today">
+                        •
+                    </button>
+
+                    <button id="next-month" type="button" aria-label="Next month">
+                        ›
+                    </button>
+                </div>
+            </div>
+
+            <div class="calendar-weekdays">
+                <div>Sun</div>
+                <div>Mon</div>
+                <div>Tue</div>
+                <div>Wed</div>
+                <div>Thu</div>
+                <div>Fri</div>
+                <div>Sat</div>
+            </div>
+
+            <div id="calendar-days" aria-live="polite"></div>
+        </section>
+
+        <section class="episode-section" aria-label="Selected episode">
+            <div class="episode-section-header">
+                <h2>Episode</h2>
+                <span id="episode-count">Select a day</span>
+            </div>
+
+            <div id="episode-list" aria-live="polite"></div>
+        </section>
+    </main>
+
+    <footer>
+        <p>Music and Sound effects by Thaddeus Silvia</p>
+    </footer>
+
+    <audio id="background-music" src="bgm.mp3" loop preload="auto"></audio>
+
+    <script src="script.js" defer></script>
+</body>
+</html>

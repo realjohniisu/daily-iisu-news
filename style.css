@@ -1,0 +1,745 @@
+:root {
+    --bg: #070709;
+    --glass: rgba(255, 255, 255, 0.055);
+    --glass-hover: rgba(255, 255, 255, 0.085);
+    --border: rgba(255, 255, 255, 0.11);
+    --border-hover: rgba(255, 255, 255, 0.2);
+    --text: #f5f5f7;
+    --muted: #96969f;
+    --radius: 20px;
+    --transition: 180ms ease;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    min-height: 100%;
+    scroll-behavior: smooth;
+}
+
+body {
+    min-height: 100vh;
+    background:
+        radial-gradient(circle at 15% 10%, rgba(255, 255, 255, 0.045), transparent 30%),
+        radial-gradient(circle at 85% 20%, rgba(255, 255, 255, 0.035), transparent 28%),
+        radial-gradient(circle at 50% 100%, rgba(255, 255, 255, 0.025), transparent 35%),
+        var(--bg);
+    color: var(--text);
+    font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    line-height: 1.5;
+    overflow-x: hidden;
+    cursor: url("cursor.svg") 4 4, auto;
+}
+
+body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background:
+        linear-gradient(
+            120deg,
+            transparent 0%,
+            rgba(255, 255, 255, 0.012) 45%,
+            transparent 55%
+        );
+    opacity: 0.8;
+    z-index: -1;
+}
+
+a,
+button,
+[role="button"] {
+    cursor: url("select.svg") 4 4, pointer;
+}
+
+button,
+input {
+    font: inherit;
+}
+
+button {
+    color: inherit;
+}
+
+header {
+    position: sticky;
+    top: 18px;
+    z-index: 1000;
+    width: min(1180px, calc(100% - 40px));
+    margin: 18px auto 0;
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.11);
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.055);
+    box-shadow:
+        0 18px 50px rgba(0, 0, 0, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+}
+
+.site-logo {
+    display: inline-flex;
+    align-items: center;
+    text-decoration: none;
+    transition: transform var(--transition), opacity var(--transition);
+}
+
+.site-logo:hover {
+    transform: translateY(-1px);
+    opacity: 0.9;
+}
+
+.site-logo img {
+    width: 142px;
+    height: auto;
+    display: block;
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.header-button {
+    min-height: 40px;
+    padding: 0 15px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.045);
+    color: var(--text);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 650;
+    text-decoration: none;
+    transition:
+        background var(--transition),
+        border-color var(--transition),
+        transform var(--transition),
+        box-shadow var(--transition);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+}
+
+.header-button:hover {
+    background: rgba(255, 255, 255, 0.085);
+    border-color: var(--border-hover);
+    transform: translateY(-1px);
+}
+
+.header-button:active {
+    transform: translateY(0);
+}
+
+.collab-button {
+    background: rgba(255, 255, 255, 0.065);
+}
+
+.button-spark {
+    font-size: 14px;
+    line-height: 1;
+}
+
+.discord-button {
+    border-color: rgba(114, 137, 218, 0.28);
+}
+
+.discord-button:hover {
+    border-color: rgba(114, 137, 218, 0.48);
+    background: rgba(114, 137, 218, 0.09);
+}
+
+.discord-icon {
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    overflow: hidden;
+}
+
+.discord-icon img {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: contain;
+}
+
+main {
+    width: min(1180px, calc(100% - 40px));
+    margin: 0 auto;
+    padding-bottom: 60px;
+}
+
+.hero {
+    padding: 65px 0 42px;
+    text-align: center;
+}
+
+.hero h1 {
+    font-size: clamp(38px, 6vw, 68px);
+    line-height: 1;
+    letter-spacing: -0.055em;
+    font-weight: 800;
+    background: linear-gradient(
+        180deg,
+        #ffffff 0%,
+        #d8d8dd 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+.hero p {
+    max-width: 600px;
+    margin: 18px auto 0;
+    color: var(--muted);
+    font-size: 15px;
+}
+
+.glass-panel {
+    border: 1px solid var(--border);
+    background: var(--glass);
+    border-radius: var(--radius);
+    box-shadow:
+        0 20px 60px rgba(0, 0, 0, 0.22),
+        inset 0 1px 0 rgba(255, 255, 255, 0.035);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+}
+
+.calendar-section {
+    padding: 24px;
+}
+
+.calendar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    margin-bottom: 22px;
+}
+
+.calendar-header h2 {
+    font-size: 20px;
+    font-weight: 750;
+    letter-spacing: -0.025em;
+}
+
+.calendar-controls {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.calendar-controls button {
+    width: 36px;
+    height: 36px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.045);
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    line-height: 1;
+    transition:
+        background var(--transition),
+        border-color var(--transition),
+        transform var(--transition),
+        opacity var(--transition);
+}
+
+.calendar-controls button:hover:not(:disabled) {
+    background: var(--glass-hover);
+    border-color: var(--border-hover);
+    transform: translateY(-1px);
+}
+
+.calendar-controls button:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+.calendar-controls button:disabled {
+    opacity: 0.28;
+    cursor: default;
+}
+
+#today-button {
+    font-size: 18px;
+}
+
+.calendar-weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.calendar-weekdays div {
+    color: #777780;
+    text-align: center;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 7px 0;
+}
+
+#calendar-days {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 8px;
+}
+
+.calendar-day {
+    position: relative;
+    min-height: 88px;
+    padding: 11px;
+    border: 1px solid transparent;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.025);
+    color: var(--text);
+    text-align: left;
+    transition:
+        background var(--transition),
+        border-color var(--transition),
+        transform var(--transition);
+}
+
+.calendar-day:hover {
+    background: rgba(255, 255, 255, 0.07);
+    border-color: var(--border);
+    transform: translateY(-1px);
+}
+
+.calendar-day.empty {
+    background: transparent;
+    pointer-events: none;
+}
+
+.calendar-day.today {
+    border-color: rgba(255, 255, 255, 0.22);
+}
+
+.calendar-day.selected {
+    background: rgba(255, 255, 255, 0.105);
+    border-color: rgba(255, 255, 255, 0.32);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.025);
+}
+
+.calendar-day-number {
+    display: block;
+    font-size: 13px;
+    font-weight: 650;
+}
+
+.calendar-day.has-episode .calendar-day-number {
+    color: #ffffff;
+}
+
+.calendar-day-title {
+    margin-top: 7px;
+    color: #888891;
+    font-size: 10px;
+    line-height: 1.35;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+}
+
+.calendar-day.has-episode::after {
+    content: "";
+    position: absolute;
+    right: 11px;
+    top: 13px;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #ffffff;
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.45);
+}
+
+.episode-section {
+    margin-top: 32px;
+}
+
+.episode-section-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 20px;
+    margin-bottom: 14px;
+}
+
+.episode-section-header h2 {
+    font-size: 21px;
+    font-weight: 750;
+    letter-spacing: -0.025em;
+}
+
+#episode-count {
+    color: var(--muted);
+    font-size: 13px;
+}
+
+#episode-list {
+    display: grid;
+    gap: 18px;
+}
+
+.episode-card {
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--glass);
+    box-shadow:
+        0 20px 60px rgba(0, 0, 0, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+}
+
+.episode-content {
+    display: grid;
+    grid-template-columns: minmax(260px, 0.9fr) minmax(320px, 1.1fr);
+    min-height: 330px;
+}
+
+.episode-thumbnail {
+    position: relative;
+    min-height: 330px;
+    background: #0b0b0e;
+    overflow: hidden;
+}
+
+.episode-thumbnail img {
+    width: 100%;
+    height: 100%;
+    min-height: 330px;
+    display: block;
+    object-fit: cover;
+    transition: transform 350ms ease;
+}
+
+.episode-card:hover .episode-thumbnail img {
+    transform: scale(1.025);
+}
+
+.episode-info {
+    padding: 30px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.episode-number {
+    color: #8e8e97;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+}
+
+.episode-title {
+    margin-top: 8px;
+    font-size: clamp(25px, 3vw, 38px);
+    line-height: 1.08;
+    letter-spacing: -0.04em;
+    font-weight: 800;
+}
+
+.episode-date {
+    margin-top: 10px;
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.episode-description {
+    margin-top: 18px;
+    color: #a5a5ad;
+    font-size: 14px;
+    line-height: 1.7;
+}
+
+.episode-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 9px;
+    margin-top: 24px;
+}
+
+.episode-button,
+.youtube-button {
+    min-height: 40px;
+    padding: 0 15px;
+    border: 1px solid var(--border);
+    border-radius: 11px;
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 650;
+    text-decoration: none;
+    transition:
+        background var(--transition),
+        border-color var(--transition),
+        transform var(--transition);
+}
+
+.episode-button:hover,
+.youtube-button:hover {
+    background: rgba(255, 255, 255, 0.09);
+    border-color: var(--border-hover);
+    transform: translateY(-1px);
+}
+
+.episode-button:active,
+.youtube-button:active {
+    transform: translateY(0);
+}
+
+.episode-button.primary {
+    background: #ffffff;
+    border-color: #ffffff;
+    color: #08080a;
+}
+
+.episode-button.primary:hover {
+    background: #e9e9ec;
+    border-color: #e9e9ec;
+}
+
+.youtube-button {
+    border-color: rgba(255, 255, 255, 0.16);
+}
+
+.youtube-icon {
+    width: 15px;
+    height: 15px;
+    display: block;
+}
+
+.no-episode {
+    padding: 48px 24px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--glass);
+    color: var(--muted);
+    text-align: center;
+    box-shadow:
+        0 20px 60px rgba(0, 0, 0, 0.15),
+        inset 0 1px 0 rgba(255, 255, 255, 0.025);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+}
+
+.loading {
+    padding: 48px 24px;
+    color: var(--muted);
+    text-align: center;
+}
+
+.error {
+    padding: 24px;
+    border: 1px solid rgba(255, 100, 100, 0.2);
+    border-radius: var(--radius);
+    background: rgba(255, 70, 70, 0.045);
+    color: #d9a2a2;
+    text-align: center;
+}
+
+footer {
+    width: min(1180px, calc(100% - 40px));
+    margin: 0 auto;
+    padding: 0 0 28px;
+    text-align: center;
+}
+
+footer p {
+    color: #66666e;
+    font-size: 11px;
+    letter-spacing: 0.01em;
+}
+
+@media (max-width: 800px) {
+    .episode-content {
+        grid-template-columns: 1fr;
+    }
+
+    .episode-thumbnail {
+        min-height: 240px;
+        max-height: 320px;
+    }
+
+    .episode-thumbnail img {
+        min-height: 240px;
+    }
+
+    .episode-info {
+        padding: 25px;
+    }
+}
+
+@media (max-width: 700px) {
+    header,
+    main,
+    footer {
+        width: min(100% - 24px, 1180px);
+    }
+
+    header {
+        top: 12px;
+        margin-top: 12px;
+        padding: 12px 14px;
+    }
+
+    .site-logo img {
+        width: 120px;
+    }
+
+    .hero {
+        padding: 45px 0 30px;
+    }
+
+    .calendar-section {
+        padding: 15px;
+    }
+
+    .calendar-weekdays,
+    #calendar-days {
+        gap: 5px;
+    }
+
+    .calendar-day {
+        min-height: 70px;
+        padding: 8px;
+        border-radius: 11px;
+    }
+
+    .calendar-day-title {
+        font-size: 9px;
+        margin-top: 5px;
+    }
+
+    .calendar-day.has-episode::after {
+        right: 8px;
+        top: 10px;
+    }
+}
+
+@media (max-width: 600px) {
+    .header-actions {
+        gap: 6px;
+    }
+
+    .header-button {
+        min-height: 38px;
+        padding: 0 11px;
+    }
+
+    .discord-button {
+        width: 38px;
+        padding: 0;
+    }
+
+    .discord-label {
+        display: none;
+    }
+
+    .hero h1 {
+        font-size: 40px;
+    }
+
+    .hero p {
+        font-size: 14px;
+    }
+
+    .calendar-header h2 {
+        font-size: 18px;
+    }
+
+    .calendar-controls button {
+        width: 33px;
+        height: 33px;
+    }
+
+    .calendar-day {
+        min-height: 58px;
+        padding: 7px;
+    }
+
+    .calendar-day-number {
+        font-size: 12px;
+    }
+
+    .calendar-day-title {
+        display: none;
+    }
+
+    .calendar-day.has-episode::after {
+        width: 4px;
+        height: 4px;
+        right: 7px;
+        top: 8px;
+    }
+
+    .episode-section-header {
+        align-items: center;
+    }
+
+    .episode-title {
+        font-size: 28px;
+    }
+
+    .episode-info {
+        padding: 22px;
+    }
+}
+
+@media (max-width: 430px) {
+    .collab-button {
+        padding: 0 10px;
+    }
+
+    .button-spark {
+        display: none;
+    }
+
+    .site-logo img {
+        width: 105px;
+    }
+
+    .calendar-section {
+        padding: 11px;
+    }
+
+    .calendar-weekdays div {
+        font-size: 9px;
+    }
+
+    .calendar-day {
+        min-height: 52px;
+    }
+}

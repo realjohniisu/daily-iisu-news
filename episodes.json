@@ -1,0 +1,18 @@
+[
+    {
+        "number": 1,
+        "title": "Daily iiSU News: Day 1",
+        "date": "2026-09-07",
+        "url": "https://www.youtube.com/watch?v=j0sVkjFYqP4",
+        "videoId": "j0sVkjFYqP4",
+        "thumbnail": "https://i.ytimg.com/vi/j0sVkjFYqP4/maxresdefault.jpg"
+    },
+    {
+        "number": 2,
+        "title": "Daily iiSU News: Day 2 (ft. @nimrodgaming2)",
+        "date": "2026-09-08",
+        "url": "https://www.youtube.com/watch?v=zPh8PhX1VFQ",
+        "videoId": "zPh8PhX1VFQ",
+        "thumbnail": "https://i.ytimg.com/vi/zPh8PhX1VFQ/maxresdefault.jpg"
+    }
+]
