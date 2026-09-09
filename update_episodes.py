@@ -35,6 +35,7 @@ def request_json(url):
             request,
             timeout=20
         ) as response:
+
             return json.loads(
                 response.read().decode(
                     "utf-8",
@@ -74,6 +75,7 @@ def request_text(url):
             request,
             timeout=20
         ) as response:
+
             return response.read().decode(
                 "utf-8",
                 errors="ignore"
@@ -186,6 +188,52 @@ def get_oembed(video_id):
     }
 
 
+def extract_date_from_page(page):
+    patterns = [
+        r'<meta\s+itemprop=["\']datePublished["\']\s+content=["\']([^"\']+)["\']\s*/?>',
+
+        r'<meta\s+content=["\']([^"\']+)["\']\s+itemprop=["\']datePublished["\']\s*/?>',
+
+        r'<meta\s+itemprop=["\']uploadDate["\']\s+content=["\']([^"\']+)["\']\s*/?>',
+
+        r'<meta\s+content=["\']([^"\']+)["\']\s+itemprop=["\']uploadDate["\']\s*/?>',
+
+        r'"publishDate"\s*:\s*"([^"]+)"',
+
+        r'"uploadDate"\s*:\s*"([^"]+)"'
+    ]
+
+    for pattern in patterns:
+        match = re.search(
+            pattern,
+            page,
+            re.IGNORECASE
+        )
+
+        if not match:
+            continue
+
+        value = html.unescape(
+            match.group(1)
+        ).strip()
+
+        date_match = re.search(
+            r"(20\d{2})-(\d{1,2})-(\d{1,2})",
+            value
+        )
+
+        if date_match:
+            return (
+                date_match.group(1)
+                + "-"
+                + date_match.group(2).zfill(2)
+                + "-"
+                + date_match.group(3).zfill(2)
+            )
+
+    return ""
+
+
 def get_publish_date(video_id):
     video_url = (
         "https://www.youtube.com/watch?v="
@@ -201,55 +249,26 @@ def get_publish_date(video_id):
     )
 
     if not page:
+        print(
+            "[YouTube] Could not get video page."
+        )
+
         return ""
 
-    patterns = [
-        r'<meta[^>]+itemprop=["\']datePublished["\'][^>]+content=["\']([^"\']+)["\'][^>]*>',
-
-        r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+itemprop=["\']datePublished["\'][^>]*>',
-
-        r'"publishDate"\s*:\s*"([^"]+)"'
-    ]
-
-    for pattern in patterns:
-        match = re.search(
-            pattern,
-            page,
-            re.IGNORECASE
-        )
-
-        if not match:
-            continue
-
-        date_value = html.unescape(
-            match.group(1)
-        ).strip()
-
-        date_match = re.search(
-            r"(20\d{2})-(\d{1,2})-(\d{1,2})",
-            date_value
-        )
-
-        if date_match:
-            date = (
-                date_match.group(1)
-                + "-"
-                + date_match.group(2).zfill(2)
-                + "-"
-                + date_match.group(3).zfill(2)
-            )
-
-            print(
-                f"[YouTube] Publish date: {date}"
-            )
-
-            return date
-
-    print(
-        "[YouTube] Publish date not found."
+    date = extract_date_from_page(
+        page
     )
 
-    return ""
+    if date:
+        print(
+            f"[YouTube] Publish date: {date}"
+        )
+    else:
+        print(
+            "[YouTube] Publish date not found."
+        )
+
+    return date
 
 
 def get_episode_number(title):
@@ -267,7 +286,10 @@ def get_episode_number(title):
     return None
 
 
-def get_video_metadata(video_id, playlist_position):
+def get_video_metadata(
+    video_id,
+    playlist_position
+):
     video_url = (
         "https://www.youtube.com/watch?v="
         + video_id
@@ -377,6 +399,7 @@ def save_database(episodes):
         "w",
         encoding="utf-8"
     ) as file:
+
         json.dump(
             episodes,
             file,
