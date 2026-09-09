@@ -1,4 +1,4 @@
-# Daily iiSU News!
+# [![iiSU News](https://raw.githubusercontent.com/realjohniisu/daily-iisu-news/main/iiSU%20News.svg)](https://realjohniisu.github.io/daily-iisu-news/)
 **NON OFFICIAL FAN PROJECT!!!**
 A project by [me, John iiSU](https://www.youtube.com/@realjohniisu)!This is based off of [Daily Silksong News](https://www.youtube.com/@DailySilksongNews), because I enjoy it and find it funny, so I made my own version!
 I know I have been slacking on coding, so I put myself to the test and made this! A website to cleanly scroll through each episode! *Isn't that cool?!?!?!?*
