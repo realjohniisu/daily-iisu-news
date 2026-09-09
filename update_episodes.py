@@ -1,6 +1,5 @@
 import urllib.request
 import json
-import os
 import re
 import html
 import time
@@ -77,13 +76,8 @@ def extract_video_ids(page):
     if not page:
         return []
 
-    pattern = (
-        r'"videoId"\s*:\s*'
-        r'"([A-Za-z0-9_-]{11})"'
-    )
-
     matches = re.findall(
-        pattern,
+        r'"videoId"\s*:\s*"([A-Za-z0-9_-]{11})"',
         page
     )
 
@@ -104,18 +98,94 @@ def extract_video_ids(page):
     return video_ids
 
 
-def extract_meta(page, patterns):
-    for pattern in patterns:
-        match = re.search(
-            pattern,
-            page,
-            re.IGNORECASE | re.DOTALL
+def get_attribute(page, attribute, value):
+    pattern = (
+        r"<meta\b"
+        r"(?=[^>]*\b"
+        + attribute
+        + r'\s*=\s*["\']'
+        + re.escape(value)
+        + r'["\'])'
+        r'(?=[^>]*\bcontent\s*=\s*["\']([^"\']+)["\'])'
+        r"[^>]*>"
+    )
+
+    match = re.search(
+        pattern,
+        page,
+        re.IGNORECASE
+    )
+
+    if match:
+        return html.unescape(
+            match.group(1)
         )
 
-        if match:
-            return html.unescape(
-                match.group(1)
-            )
+    pattern = (
+        r"<meta\b"
+        r"(?=[^>]*\bcontent\s*=\s*["\']([^"\']+)["\'])"
+        r"(?=[^>]*\b"
+        + attribute
+        + r'\s*=\s*["\']'
+        + re.escape(value)
+        + r'["\'])'
+        r"[^>]*>"
+    )
+
+    match = re.search(
+        pattern,
+        page,
+        re.IGNORECASE
+    )
+
+    if match:
+        return html.unescape(
+            match.group(1)
+        )
+
+    return ""
+
+
+def get_itemprop(page, value):
+    pattern = (
+        r"<meta\b"
+        r"(?=[^>]*\bitemprop\s*=\s*["\']"
+        + re.escape(value)
+        + r'["\'])'
+        r'(?=[^>]*\bcontent\s*=\s*["\']([^"\']+)["\'])'
+        r"[^>]*>"
+    )
+
+    match = re.search(
+        pattern,
+        page,
+        re.IGNORECASE
+    )
+
+    if match:
+        return html.unescape(
+            match.group(1)
+        )
+
+    pattern = (
+        r"<meta\b"
+        r"(?=[^>]*\bcontent\s*=\s*["\']([^"\']+)["\'])"
+        r"(?=[^>]*\bitemprop\s*=\s*["\']"
+        + re.escape(value)
+        + r'["\'])'
+        r"[^>]*>"
+    )
+
+    match = re.search(
+        pattern,
+        page,
+        re.IGNORECASE
+    )
+
+    if match:
+        return html.unescape(
+            match.group(1)
+        )
 
     return ""
 
@@ -145,23 +215,22 @@ def get_video_metadata(video_id):
                 f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg"
         }
 
-    title = ""
+    title = get_attribute(
+        page,
+        "property",
+        "og:title"
+    )
 
-    title_patterns = [
-        r'<meta[^>]*property=["\']og:title["\'][^>]*content=["\']([^"\']+)["\']',
+    if not title:
+        title = get_attribute(
+            page,
+            "name",
+            "title"
+        )
 
-        r'<meta[^>]*content=["\']([^"\']+)["\'][^>]*property=["\']og:title["\']',
-
-        r'<meta[^>]*name=["\']title["\'][^>]*content=["\']([^"\']+)["\']',
-
-        r'<meta[^>]*content=["\']([^"\']+)["\'][^>]*name=["\']title["\']',
-
-        r'<title>(.*?)</title>'
-    ]
-
-    for pattern in title_patterns:
+    if not title:
         match = re.search(
-            pattern,
+            r"<title[^>]*>(.*?)</title>",
             page,
             re.IGNORECASE | re.DOTALL
         )
@@ -171,7 +240,17 @@ def get_video_metadata(video_id):
                 match.group(1)
             ).strip()
 
-            break
+    if not title:
+        match = re.search(
+            r'"videoDetails"\s*:\s*\{.*?"title"\s*:\s*"([^"]+)"',
+            page,
+            re.IGNORECASE | re.DOTALL
+        )
+
+        if match:
+            title = html.unescape(
+                match.group(1)
+            ).strip()
 
     if not title:
         title = "Daily iiSU News"
@@ -183,23 +262,20 @@ def get_video_metadata(video_id):
         flags=re.IGNORECASE
     ).strip()
 
-    date = ""
+    date = get_itemprop(
+        page,
+        "datePublished"
+    )
 
-    date_patterns = [
-        r'"datePublished"\s*:\s*"([^"]+)"',
+    if not date:
+        date = get_itemprop(
+            page,
+            "uploadDate"
+        )
 
-        r'"publishDate"\s*:\s*"([^"]+)"',
-
-        r'"uploadDate"\s*:\s*"([^"]+)"',
-
-        r'<meta[^>]*itemprop=["\']datePublished["\'][^>]*content=["\']([^"\']+)["\']',
-
-        r'<meta[^>]*content=["\']([^"\']+)["\'][^>]*itemprop=["\']datePublished["\']'
-    ]
-
-    for pattern in date_patterns:
+    if not date:
         match = re.search(
-            pattern,
+            r'"publishDate"\s*:\s*"([^"]+)"',
             page,
             re.IGNORECASE
         )
@@ -207,7 +283,15 @@ def get_video_metadata(video_id):
         if match:
             date = match.group(1)
 
-            break
+    if not date:
+        match = re.search(
+            r'"uploadDate"\s*:\s*"([^"]+)"',
+            page,
+            re.IGNORECASE
+        )
+
+        if match:
+            date = match.group(1)
 
     date_match = re.search(
         r"(20\d{2})-(\d{1,2})-(\d{1,2})",
@@ -222,31 +306,14 @@ def get_video_metadata(video_id):
             + "-"
             + date_match.group(3).zfill(2)
         )
-
     else:
         date = ""
 
-    thumbnail = ""
-
-    thumbnail_patterns = [
-        r'<meta[^>]*property=["\']og:image["\'][^>]*content=["\']([^"\']+)["\']',
-
-        r'<meta[^>]*content=["\']([^"\']+)["\'][^>]*property=["\']og:image["\']'
-    ]
-
-    for pattern in thumbnail_patterns:
-        match = re.search(
-            pattern,
-            page,
-            re.IGNORECASE
-        )
-
-        if match:
-            thumbnail = html.unescape(
-                match.group(1)
-            )
-
-            break
+    thumbnail = get_attribute(
+        page,
+        "property",
+        "og:image"
+    )
 
     if not thumbnail:
         thumbnail = (
@@ -329,7 +396,6 @@ def save_database(episodes):
         "w",
         encoding="utf-8"
     ) as file:
-
         json.dump(
             episodes,
             file,
