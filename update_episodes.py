@@ -2,8 +2,8 @@ import urllib.request
 import urllib.parse
 import json
 import re
+import html
 import time
-import xml.etree.ElementTree as ET
 
 
 # ============================================================
@@ -24,6 +24,7 @@ PLAYLIST_URL = (
 # ============================================================
 
 def make_request(url, accept="*/*"):
+
     request = urllib.request.Request(
         url,
         headers={
@@ -44,6 +45,7 @@ def make_request(url, accept="*/*"):
     )
 
     try:
+
         with urllib.request.urlopen(
             request,
             timeout=20
@@ -52,6 +54,7 @@ def make_request(url, accept="*/*"):
             return response.read()
 
     except Exception as error:
+
         print(
             "[Request] Failed:",
             error
@@ -61,6 +64,7 @@ def make_request(url, accept="*/*"):
 
 
 def request_text(url):
+
     data = make_request(
         url,
         "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
@@ -76,6 +80,7 @@ def request_text(url):
 
 
 def request_json(url):
+
     data = make_request(
         url,
         "application/json,text/plain,*/*"
@@ -85,6 +90,7 @@ def request_json(url):
         return None
 
     try:
+
         return json.loads(
             data.decode(
                 "utf-8",
@@ -93,6 +99,7 @@ def request_json(url):
         )
 
     except Exception as error:
+
         print(
             "[JSON] Failed to parse response:",
             error
@@ -106,14 +113,18 @@ def request_json(url):
 # ============================================================
 
 def fetch_playlist():
+
     print()
-    print("[YouTube] Downloading playlist...")
+    print(
+        "[YouTube] Downloading playlist..."
+    )
 
     page = request_text(
         PLAYLIST_URL
     )
 
     if not page:
+
         print(
             "[YouTube] Could not download playlist."
         )
@@ -127,9 +138,586 @@ def fetch_playlist():
     return page
 
 
-def extract_video_ids(page):
+# ============================================================
+# EXTRACT ytInitialData
+# ============================================================
+
+def extract_initial_data(page):
+
     if not page:
-        return []
+        return None
+
+    patterns = [
+
+        # Modern YouTube
+        r'var\s+ytInitialData\s*=\s*(\{.*?\})\s*;',
+
+        # Alternate form
+        r'window\["ytInitialData"\]\s*=\s*(\{.*?\})\s*;',
+
+        # Another form used by YouTube
+        r'ytInitialData"\s*:\s*(\{.*?\})\s*,\s*"ytInitialPlayerResponse"',
+
+    ]
+
+    for pattern in patterns:
+
+        match = re.search(
+            pattern,
+            page,
+            re.DOTALL
+        )
+
+        if not match:
+            continue
+
+        raw_json = match.group(1)
+
+        try:
+
+            data = json.loads(
+                raw_json
+            )
+
+            print(
+                "[YouTube] Successfully extracted ytInitialData."
+            )
+
+            return data
+
+        except json.JSONDecodeError:
+
+            # ------------------------------------------------
+            # Regex can stop at the wrong closing brace
+            # because YouTube's JSON is enormous.
+            #
+            # Try a balanced-brace extraction instead.
+            # ------------------------------------------------
+
+            pass
+
+    # --------------------------------------------------------
+    # Balanced JSON extraction.
+    # --------------------------------------------------------
+
+    markers = [
+        "var ytInitialData = ",
+        'window["ytInitialData"] = ',
+        "ytInitialData = "
+    ]
+
+    for marker in markers:
+
+        start = page.find(
+            marker
+        )
+
+        if start == -1:
+            continue
+
+        start += len(
+            marker
+        )
+
+        while (
+            start < len(page)
+            and page[start].isspace()
+        ):
+            start += 1
+
+        if (
+            start >= len(page)
+            or page[start] != "{"
+        ):
+            continue
+
+        depth = 0
+        in_string = False
+        escaped = False
+
+        for index in range(
+            start,
+            len(page)
+        ):
+
+            character = page[index]
+
+            if in_string:
+
+                if escaped:
+
+                    escaped = False
+
+                elif character == "\\":
+
+                    escaped = True
+
+                elif character == '"':
+
+                    in_string = False
+
+                continue
+
+            if character == '"':
+
+                in_string = True
+
+                continue
+
+            if character == "{":
+
+                depth += 1
+
+            elif character == "}":
+
+                depth -= 1
+
+                if depth == 0:
+
+                    raw_json = page[
+                        start:index + 1
+                    ]
+
+                    try:
+
+                        data = json.loads(
+                            raw_json
+                        )
+
+                        print(
+                            "[YouTube] Successfully extracted "
+                            "ytInitialData."
+                        )
+
+                        return data
+
+                    except json.JSONDecodeError as error:
+
+                        print(
+                            "[YouTube] ytInitialData JSON "
+                            "could not be parsed:",
+                            error
+                        )
+
+                        return None
+
+    print(
+        "[YouTube] ytInitialData was not found."
+    )
+
+    return None
+
+
+# ============================================================
+# RECURSIVE VIDEO SEARCH
+# ============================================================
+
+def find_video_entries(
+    value,
+    results=None
+):
+
+    if results is None:
+
+        results = {}
+
+    if isinstance(
+        value,
+        dict
+    ):
+
+        # ----------------------------------------------------
+        # Look for objects containing a videoId.
+        # ----------------------------------------------------
+
+        video_id = value.get(
+            "videoId"
+        )
+
+        if (
+            isinstance(
+                video_id,
+                str
+            )
+            and re.fullmatch(
+                r"[A-Za-z0-9_-]{11}",
+                video_id
+            )
+        ):
+
+            results.setdefault(
+                video_id,
+                []
+            ).append(
+                value
+            )
+
+        # ----------------------------------------------------
+        # Continue recursively.
+        # ----------------------------------------------------
+
+        for child in value.values():
+
+            find_video_entries(
+                child,
+                results
+            )
+
+    elif isinstance(
+        value,
+        list
+    ):
+
+        for child in value:
+
+            find_video_entries(
+                child,
+                results
+            )
+
+    return results
+
+
+# ============================================================
+# DATE PARSING
+# ============================================================
+
+def date_from_iso(value):
+
+    if not isinstance(
+        value,
+        str
+    ):
+        return ""
+
+    value = html.unescape(
+        value
+    ).strip()
+
+    match = re.search(
+        r"(20\d{2})-(\d{1,2})-(\d{1,2})",
+        value
+    )
+
+    if not match:
+        return ""
+
+    return (
+        match.group(1)
+        + "-"
+        + match.group(2).zfill(2)
+        + "-"
+        + match.group(3).zfill(2)
+    )
+
+
+def date_from_text(value):
+
+    if not isinstance(
+        value,
+        str
+    ):
+        return ""
+
+    value = html.unescape(
+        value
+    ).strip()
+
+    # --------------------------------------------------------
+    # ISO date
+    # --------------------------------------------------------
+
+    date = date_from_iso(
+        value
+    )
+
+    if date:
+        return date
+
+    # --------------------------------------------------------
+    # Formats such as:
+    #
+    # Sep 7, 2026
+    # September 7, 2026
+    # --------------------------------------------------------
+
+    match = re.search(
+        r"\b"
+        r"(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|"
+        r"May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|"
+        r"Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|"
+        r"Dec(?:ember)?)"
+        r"\s+"
+        r"(\d{1,2}),"
+        r"\s+"
+        r"(20\d{2})"
+        r"\b",
+        value,
+        re.IGNORECASE
+    )
+
+    if match:
+
+        months = {
+            "jan": "01",
+            "january": "01",
+            "feb": "02",
+            "february": "02",
+            "mar": "03",
+            "march": "03",
+            "apr": "04",
+            "april": "04",
+            "may": "05",
+            "jun": "06",
+            "june": "06",
+            "jul": "07",
+            "july": "07",
+            "aug": "08",
+            "august": "08",
+            "sep": "09",
+            "september": "09",
+            "oct": "10",
+            "october": "10",
+            "nov": "11",
+            "november": "11",
+            "dec": "12",
+            "december": "12"
+        }
+
+        month = months.get(
+            match.group(1).lower()
+        )
+
+        if month:
+
+            return (
+                match.group(3)
+                + "-"
+                + month
+                + "-"
+                + match.group(2).zfill(2)
+            )
+
+    return ""
+
+
+# ============================================================
+# EXTRACT DATES FROM PLAYLIST DATA
+# ============================================================
+
+def extract_playlist_dates(
+    initial_data,
+    video_ids
+):
+
+    print()
+    print(
+        "[YouTube] Searching playlist embedded data for dates..."
+    )
+
+    entries = find_video_entries(
+        initial_data
+    )
+
+    dates = {}
+
+    for video_id in video_ids:
+
+        candidates = entries.get(
+            video_id,
+            []
+        )
+
+        found_date = ""
+
+        for entry in candidates:
+
+            # ------------------------------------------------
+            # First check explicit date-like fields.
+            # ------------------------------------------------
+
+            date_fields = [
+                "publishedAt",
+                "publishDate",
+                "uploadDate",
+                "publishedTime"
+            ]
+
+            for field in date_fields:
+
+                if field not in entry:
+                    continue
+
+                found_date = date_from_iso(
+                    entry[field]
+                )
+
+                if found_date:
+                    break
+
+            if found_date:
+                break
+
+            # ------------------------------------------------
+            # Check publishedTimeText.
+            # ------------------------------------------------
+
+            published_text = entry.get(
+                "publishedTimeText"
+            )
+
+            if isinstance(
+                published_text,
+                dict
+            ):
+
+                text = published_text.get(
+                    "simpleText",
+                    ""
+                )
+
+                found_date = date_from_text(
+                    text
+                )
+
+                if found_date:
+                    break
+
+            # ------------------------------------------------
+            # Check accessibility label.
+            #
+            # YouTube sometimes puts the absolute-looking
+            # date information into aria-label text.
+            # ------------------------------------------------
+
+            accessibility = entry.get(
+                "accessibility"
+            )
+
+            if isinstance(
+                accessibility,
+                dict
+            ):
+
+                accessibility_data = (
+                    accessibility.get(
+                        "accessibilityData",
+                        {}
+                    )
+                )
+
+                if isinstance(
+                    accessibility_data,
+                    dict
+                ):
+
+                    label = accessibility_data.get(
+                        "label",
+                        ""
+                    )
+
+                    found_date = date_from_text(
+                        label
+                    )
+
+                    if found_date:
+                        break
+
+            # ------------------------------------------------
+            # Check title accessibility information.
+            # ------------------------------------------------
+
+            title = entry.get(
+                "title"
+            )
+
+            if isinstance(
+                title,
+                dict
+            ):
+
+                runs = title.get(
+                    "runs",
+                    []
+                )
+
+                combined = " ".join(
+                    run.get(
+                        "text",
+                        ""
+                    )
+                    for run in runs
+                    if isinstance(
+                        run,
+                        dict
+                    )
+                )
+
+                found_date = date_from_text(
+                    combined
+                )
+
+                if found_date:
+                    break
+
+        if found_date:
+
+            dates[video_id] = found_date
+
+            print(
+                f"[YouTube] {video_id} -> {found_date}"
+            )
+
+        else:
+
+            print(
+                f"[YouTube] {video_id} -> "
+                "date not found in embedded data"
+            )
+
+    print(
+        f"[YouTube] Found dates for "
+        f"{len(dates)}/{len(video_ids)} video(s)."
+    )
+
+    return dates
+
+
+# ============================================================
+# VIDEO IDS
+# ============================================================
+
+def extract_video_ids(
+    page
+):
+
+    initial_data = extract_initial_data(
+        page
+    )
+
+    if initial_data:
+
+        entries = find_video_entries(
+            initial_data
+        )
+
+        video_ids = list(
+            entries.keys()
+        )
+
+        if video_ids:
+
+            print(
+                f"[YouTube] Found "
+                f"{len(video_ids)} video(s) "
+                "from embedded data."
+            )
+
+            return video_ids, initial_data
+
+    # --------------------------------------------------------
+    # Fallback to the old regex method.
+    # --------------------------------------------------------
 
     matches = re.findall(
         r'"videoId"\s*:\s*"([A-Za-z0-9_-]{11})"',
@@ -153,17 +741,21 @@ def extract_video_ids(page):
         )
 
     print(
-        f"[YouTube] Found {len(video_ids)} video(s)."
+        f"[YouTube] Found "
+        f"{len(video_ids)} video(s) "
+        "using fallback extraction."
     )
 
-    return video_ids
+    return video_ids, initial_data
 
 
 # ============================================================
 # OEMBED
 # ============================================================
 
-def get_oembed(video_id):
+def get_oembed(
+    video_id
+):
 
     video_url = (
         "https://www.youtube.com/watch?v="
@@ -183,7 +775,8 @@ def get_oembed(video_id):
     )
 
     print(
-        f"[YouTube] Getting oEmbed data for {video_id}..."
+        f"[YouTube] Getting oEmbed data for "
+        f"{video_id}..."
     )
 
     data = request_json(
@@ -191,6 +784,7 @@ def get_oembed(video_id):
     )
 
     if not data:
+
         print(
             "[YouTube] oEmbed request failed."
         )
@@ -208,8 +802,10 @@ def get_oembed(video_id):
     ).strip()
 
     if title:
+
         print(
-            f"[YouTube] oEmbed title: {title}"
+            f"[YouTube] oEmbed title: "
+            f"{title}"
         )
 
     return {
@@ -219,264 +815,12 @@ def get_oembed(video_id):
 
 
 # ============================================================
-# RSS DATE LOOKUP
-# ============================================================
-
-def get_channel_id(video_id):
-    """
-    Gets the channel ID associated with a video.
-
-    This is used so we can access the channel RSS feed.
-    """
-
-    video_url = (
-        "https://www.youtube.com/watch?v="
-        + video_id
-    )
-
-    print(
-        f"[YouTube] Finding channel ID for {video_id}..."
-    )
-
-    page = request_text(
-        video_url
-    )
-
-    if not page:
-        return None
-
-    patterns = [
-
-        # Modern YouTube page
-        r'"channelId"\s*:\s*"([A-Za-z0-9_-]{24})"',
-
-        # owner profile
-        r'"ownerProfileUrl"\s*:\s*"https://www\.youtube\.com/channel/([A-Za-z0-9_-]+)"',
-
-        # channel URL
-        r'https://www\.youtube\.com/channel/([A-Za-z0-9_-]{24})'
-    ]
-
-    for pattern in patterns:
-
-        match = re.search(
-            pattern,
-            page
-        )
-
-        if match:
-            channel_id = match.group(1)
-
-            print(
-                f"[YouTube] Channel ID: {channel_id}"
-            )
-
-            return channel_id
-
-    print(
-        "[YouTube] Could not find channel ID."
-    )
-
-    return None
-
-
-def get_channel_rss(channel_id):
-
-    rss_url = (
-        "https://www.youtube.com/feeds/videos.xml"
-        "?channel_id="
-        + channel_id
-    )
-
-    print(
-        "[YouTube] Downloading channel RSS feed..."
-    )
-
-    data = make_request(
-        rss_url,
-        "application/rss+xml,application/xml,text/xml,*/*"
-    )
-
-    if not data:
-        print(
-            "[YouTube] RSS request failed."
-        )
-
-        return None
-
-    print(
-        f"[YouTube] Downloaded RSS feed "
-        f"({len(data):,} bytes)."
-    )
-
-    return data
-
-
-def parse_rss_feed(data):
-
-    if not data:
-        return {}
-
-    try:
-        root = ET.fromstring(
-            data
-        )
-
-    except Exception as error:
-        print(
-            "[RSS] Could not parse RSS feed:",
-            error
-        )
-
-        return {}
-
-    namespace = {
-        "atom": "http://www.w3.org/2005/Atom",
-        "yt": "http://www.youtube.com/xml/schemas/2015"
-    }
-
-    dates = {}
-
-    entries = root.findall(
-        "atom:entry",
-        namespace
-    )
-
-    print(
-        f"[RSS] Found {len(entries)} RSS video(s)."
-    )
-
-    for entry in entries:
-
-        video_element = entry.find(
-            "yt:videoId",
-            namespace
-        )
-
-        published_element = entry.find(
-            "atom:published",
-            namespace
-        )
-
-        if (
-            video_element is None
-            or published_element is None
-        ):
-            continue
-
-        video_id = (
-            video_element.text
-            or ""
-        ).strip()
-
-        published = (
-            published_element.text
-            or ""
-        ).strip()
-
-        if not video_id or not published:
-            continue
-
-        # Convert:
-        #
-        # 2026-09-08T01:45:57+00:00
-        #
-        # into:
-        #
-        # 2026-09-08
-
-        match = re.match(
-            r"(20\d{2})-(\d{2})-(\d{2})",
-            published
-        )
-
-        if not match:
-            continue
-
-        date = (
-            match.group(1)
-            + "-"
-            + match.group(2)
-            + "-"
-            + match.group(3)
-        )
-
-        dates[video_id] = date
-
-        print(
-            f"[RSS] {video_id} -> {date}"
-        )
-
-    return dates
-
-
-def get_publish_dates(video_ids):
-
-    if not video_ids:
-        return {}
-
-    # --------------------------------------------------------
-    # First try to find the channel ID from the first video.
-    # --------------------------------------------------------
-
-    channel_id = get_channel_id(
-        video_ids[0]
-    )
-
-    if not channel_id:
-        print(
-            "[RSS] Unable to determine channel."
-        )
-
-        return {}
-
-    # --------------------------------------------------------
-    # Download channel RSS feed.
-    # --------------------------------------------------------
-
-    rss_data = get_channel_rss(
-        channel_id
-    )
-
-    if not rss_data:
-        return {}
-
-    # --------------------------------------------------------
-    # Parse dates.
-    # --------------------------------------------------------
-
-    dates = parse_rss_feed(
-        rss_data
-    )
-
-    # --------------------------------------------------------
-    # Only keep dates for videos we actually need.
-    # --------------------------------------------------------
-
-    wanted_dates = {}
-
-    for video_id in video_ids:
-
-        if video_id in dates:
-
-            wanted_dates[video_id] = (
-                dates[video_id]
-            )
-
-    print(
-        f"[RSS] Matched "
-        f"{len(wanted_dates)}/{len(video_ids)} "
-        f"video date(s)."
-    )
-
-    return wanted_dates
-
-
-# ============================================================
 # EPISODE NUMBER
 # ============================================================
 
-def get_episode_number(title):
+def get_episode_number(
+    title
+):
 
     match = re.search(
         r"\b(?:day|episode)\s*#?\s*(\d+)\b",
@@ -509,7 +853,7 @@ def get_video_metadata(
     )
 
     # --------------------------------------------------------
-    # Get title + thumbnail using oEmbed.
+    # oEmbed
     # --------------------------------------------------------
 
     oembed = get_oembed(
@@ -534,7 +878,7 @@ def get_video_metadata(
         thumbnail = ""
 
     # --------------------------------------------------------
-    # Fallback title.
+    # Fallback title
     # --------------------------------------------------------
 
     if not title:
@@ -545,7 +889,7 @@ def get_video_metadata(
         )
 
     # --------------------------------------------------------
-    # Fallback thumbnail.
+    # Fallback thumbnail
     # --------------------------------------------------------
 
     if not thumbnail:
@@ -557,7 +901,7 @@ def get_video_metadata(
         )
 
     # --------------------------------------------------------
-    # Get date from RSS data.
+    # Date
     # --------------------------------------------------------
 
     date = publish_dates.get(
@@ -568,17 +912,18 @@ def get_video_metadata(
     if date:
 
         print(
-            f"[YouTube] Publish date: {date}"
+            f"[YouTube] Publish date: "
+            f"{date}"
         )
 
     else:
 
         print(
-            "[YouTube] Publish date not found in RSS."
+            "[YouTube] Publish date not found."
         )
 
     # --------------------------------------------------------
-    # Get episode number from title.
+    # Episode number
     # --------------------------------------------------------
 
     number = get_episode_number(
@@ -590,7 +935,7 @@ def get_video_metadata(
         number = playlist_position
 
     # --------------------------------------------------------
-    # Return complete metadata.
+    # Return
     # --------------------------------------------------------
 
     return {
@@ -609,21 +954,13 @@ def get_video_metadata(
 
 def build_episode_database():
 
-    # --------------------------------------------------------
-    # Download playlist.
-    # --------------------------------------------------------
-
     page = fetch_playlist()
 
     if not page:
 
         return []
 
-    # --------------------------------------------------------
-    # Find videos.
-    # --------------------------------------------------------
-
-    video_ids = extract_video_ids(
+    video_ids, initial_data = extract_video_ids(
         page
     )
 
@@ -636,15 +973,22 @@ def build_episode_database():
         return []
 
     # --------------------------------------------------------
-    # Get publication dates in one RSS request.
+    # Get dates directly from playlist data.
     # --------------------------------------------------------
 
-    publish_dates = get_publish_dates(
-        video_ids
-    )
+    if initial_data:
+
+        publish_dates = extract_playlist_dates(
+            initial_data,
+            video_ids
+        )
+
+    else:
+
+        publish_dates = {}
 
     # --------------------------------------------------------
-    # Build episode list.
+    # Build episodes.
     # --------------------------------------------------------
 
     episodes = []
@@ -656,7 +1000,8 @@ def build_episode_database():
 
         print()
         print(
-            f"[Episode {position}] {video_id}"
+            f"[Episode {position}] "
+            f"{video_id}"
         )
 
         episode = get_video_metadata(
@@ -669,7 +1014,6 @@ def build_episode_database():
             episode
         )
 
-        # Small delay to avoid hammering YouTube.
         time.sleep(
             0.5
         )
@@ -690,7 +1034,9 @@ def build_episode_database():
 # SAVE DATABASE
 # ============================================================
 
-def save_database(episodes):
+def save_database(
+    episodes
+):
 
     with open(
         OUTPUT_FILE,
@@ -713,11 +1059,17 @@ def save_database(episodes):
 def main():
 
     print()
-    print("=" * 60)
+    print(
+        "=" * 60
+    )
+
     print(
         "       DAILY IISU NEWS DATABASE UPDATER"
     )
-    print("=" * 60)
+
+    print(
+        "=" * 60
+    )
 
     episodes = build_episode_database()
 
@@ -767,4 +1119,5 @@ def main():
 # ============================================================
 
 if __name__ == "__main__":
+
     main()
