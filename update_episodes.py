@@ -6,12 +6,14 @@ import html
 import time
 
 PLAYLIST_ID = "PLQgwceUpKnfA"
+
 OUTPUT_FILE = "episodes.json"
 
 PLAYLIST_URL = (
     "https://www.youtube.com/playlist?list="
     + PLAYLIST_ID
 )
+
 
 def youtube_request(url):
     request = urllib.request.Request(
@@ -22,10 +24,13 @@ def youtube_request(url):
                 "AppleWebKit/537.36 "
                 "(KHTML, like Gecko) "
                 "Chrome/140.0.0.0 Safari/537.36",
+
             "Accept":
                 "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+
             "Accept-Language":
                 "en-US,en;q=0.9",
+
             "Cookie":
                 "CONSENT=YES+cb"
         }
@@ -42,21 +47,31 @@ def youtube_request(url):
             )
 
     except Exception as error:
-        print("[YouTube] Request failed:", error)
+        print(
+            "[YouTube] Request failed:",
+            error
+        )
+
         return None
+
 
 def fetch_playlist():
     print()
     print("[YouTube] Downloading playlist...")
 
-    page = youtube_request(PLAYLIST_URL)
+    page = youtube_request(
+        PLAYLIST_URL
+    )
 
     if not page:
         return None
 
-    print(f"[YouTube] Downloaded {len(page):,} bytes.")
+    print(
+        f"[YouTube] Downloaded {len(page):,} bytes."
+    )
 
     return page
+
 
 def extract_video_ids(page):
     if not page:
@@ -67,7 +82,10 @@ def extract_video_ids(page):
         r'"([A-Za-z0-9_-]{11})"'
     )
 
-    matches = re.findall(pattern, page)
+    matches = re.findall(
+        pattern,
+        page
+    )
 
     video_ids = []
     seen = set()
@@ -79,22 +97,28 @@ def extract_video_ids(page):
         seen.add(video_id)
         video_ids.append(video_id)
 
-    print(f"[YouTube] Found {len(video_ids)} video(s).")
+    print(
+        f"[YouTube] Found {len(video_ids)} video(s)."
+    )
 
     return video_ids
+
 
 def extract_meta(page, patterns):
     for pattern in patterns:
         match = re.search(
             pattern,
             page,
-            re.IGNORECASE
+            re.IGNORECASE | re.DOTALL
         )
 
         if match:
-            return html.unescape(match.group(1))
+            return html.unescape(
+                match.group(1)
+            )
 
     return ""
+
 
 def get_video_metadata(video_id):
     video_url = (
@@ -102,9 +126,13 @@ def get_video_metadata(video_id):
         + video_id
     )
 
-    print(f"[YouTube] Reading {video_id}...")
+    print(
+        f"[YouTube] Reading {video_id}..."
+    )
 
-    page = youtube_request(video_url)
+    page = youtube_request(
+        video_url
+    )
 
     if not page:
         return {
@@ -117,14 +145,33 @@ def get_video_metadata(video_id):
                 f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg"
         }
 
-    title = extract_meta(
-        page,
-        [
-            r'<meta[^>]+property=["\']og:title["\'][^>]+content=["\'](.*?)["\']',
-            r'<meta[^>]+name=["\']title["\'][^>]+content=["\'](.*?)["\']',
-            r'<title>(.*?)</title>'
-        ]
-    )
+    title = ""
+
+    title_patterns = [
+        r'<meta[^>]*property=["\']og:title["\'][^>]*content=["\']([^"\']+)["\']',
+
+        r'<meta[^>]*content=["\']([^"\']+)["\'][^>]*property=["\']og:title["\']',
+
+        r'<meta[^>]*name=["\']title["\'][^>]*content=["\']([^"\']+)["\']',
+
+        r'<meta[^>]*content=["\']([^"\']+)["\'][^>]*name=["\']title["\']',
+
+        r'<title>(.*?)</title>'
+    ]
+
+    for pattern in title_patterns:
+        match = re.search(
+            pattern,
+            page,
+            re.IGNORECASE | re.DOTALL
+        )
+
+        if match:
+            title = html.unescape(
+                match.group(1)
+            ).strip()
+
+            break
 
     if not title:
         title = "Daily iiSU News"
@@ -136,14 +183,31 @@ def get_video_metadata(video_id):
         flags=re.IGNORECASE
     ).strip()
 
-    date = extract_meta(
-        page,
-        [
-            r'<meta[^>]+itemprop=["\']datePublished["\'][^>]+content=["\'](.*?)["\']',
-            r'"publishDate"\s*:\s*"([^"]+)"',
-            r'"datePublished"\s*:\s*"([^"]+)"'
-        ]
-    )
+    date = ""
+
+    date_patterns = [
+        r'"datePublished"\s*:\s*"([^"]+)"',
+
+        r'"publishDate"\s*:\s*"([^"]+)"',
+
+        r'"uploadDate"\s*:\s*"([^"]+)"',
+
+        r'<meta[^>]*itemprop=["\']datePublished["\'][^>]*content=["\']([^"\']+)["\']',
+
+        r'<meta[^>]*content=["\']([^"\']+)["\'][^>]*itemprop=["\']datePublished["\']'
+    ]
+
+    for pattern in date_patterns:
+        match = re.search(
+            pattern,
+            page,
+            re.IGNORECASE
+        )
+
+        if match:
+            date = match.group(1)
+
+            break
 
     date_match = re.search(
         r"(20\d{2})-(\d{1,2})-(\d{1,2})",
@@ -158,15 +222,31 @@ def get_video_metadata(video_id):
             + "-"
             + date_match.group(3).zfill(2)
         )
+
     else:
         date = ""
 
-    thumbnail = extract_meta(
-        page,
-        [
-            r'<meta[^>]+property=["\']og:image["\'][^>]+content=["\'](.*?)["\']'
-        ]
-    )
+    thumbnail = ""
+
+    thumbnail_patterns = [
+        r'<meta[^>]*property=["\']og:image["\'][^>]*content=["\']([^"\']+)["\']',
+
+        r'<meta[^>]*content=["\']([^"\']+)["\'][^>]*property=["\']og:image["\']'
+    ]
+
+    for pattern in thumbnail_patterns:
+        match = re.search(
+            pattern,
+            page,
+            re.IGNORECASE
+        )
+
+        if match:
+            thumbnail = html.unescape(
+                match.group(1)
+            )
+
+            break
 
     if not thumbnail:
         thumbnail = (
@@ -184,7 +264,9 @@ def get_video_metadata(video_id):
     )
 
     if number_match:
-        number = int(number_match.group(1))
+        number = int(
+            number_match.group(1)
+        )
 
     return {
         "number": number,
@@ -195,28 +277,41 @@ def get_video_metadata(video_id):
         "thumbnail": thumbnail
     }
 
+
 def build_episode_database():
     page = fetch_playlist()
 
     if not page:
-        print("[YouTube] Could not download playlist.")
+        print(
+            "[YouTube] Could not download playlist."
+        )
+
         return []
 
-    video_ids = extract_video_ids(page)
+    video_ids = extract_video_ids(
+        page
+    )
 
     if not video_ids:
-        print("[YouTube] No videos found.")
+        print(
+            "[YouTube] No videos found."
+        )
+
         return []
 
     episodes = []
 
     for index, video_id in enumerate(video_ids):
-        episode = get_video_metadata(video_id)
+        episode = get_video_metadata(
+            video_id
+        )
 
         if episode["number"] is None:
             episode["number"] = index + 1
 
-        episodes.append(episode)
+        episodes.append(
+            episode
+        )
 
         time.sleep(0.15)
 
@@ -227,18 +322,21 @@ def build_episode_database():
 
     return episodes
 
+
 def save_database(episodes):
     with open(
         OUTPUT_FILE,
         "w",
         encoding="utf-8"
     ) as file:
+
         json.dump(
             episodes,
             file,
             indent=4,
             ensure_ascii=False
         )
+
 
 def main():
     print()
@@ -250,11 +348,19 @@ def main():
 
     if not episodes:
         print()
-        print("ERROR: No episodes were found.")
-        print("episodes.json was not changed.")
+        print(
+            "ERROR: No episodes were found."
+        )
+
+        print(
+            "episodes.json was not changed."
+        )
+
         return
 
-    save_database(episodes)
+    save_database(
+        episodes
+    )
 
     print()
     print(
@@ -272,8 +378,12 @@ def main():
         )
 
     print()
-    print("Done!")
+    print(
+        "Done!"
+    )
+
     print()
+
 
 if __name__ == "__main__":
     main()
