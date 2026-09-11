@@ -6,3 +6,4 @@ How does it work you may ask? Well, basically a script auto-run every 15 minutes
 Will this website get any new updates? **No.** And it probably never will... unless there is a giant bug that I don't know about.
 What are those buttons in the top [of the website](https://realjohniisu.github.io/daily-iisu-news/)? Great question! The "Join Discord" button links you to a invite to the OFFICIAL Daily iiSU News server, in case you'd like to join for some reason. The other button there that says "Collab!" takes you to a [Google Form](https://docs.google.com/forms/d/e/1FAIpQLSfwxK6l5XZ4TWpSIyEbz5Z-3RHwZHMkVXfeXpZbR0dLCAX3aA/viewform) where you can enter your Discord and YouTube usernames to be the voiceover in an episode!
 That's just about it! Go ham or whatever!!
+More info [here](https://github.com/realjohniisu/daily-iisu-news/blob/main/credits.md)!
