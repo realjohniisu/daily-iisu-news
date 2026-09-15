@@ -56,11 +56,19 @@
         "thumbnail": "https://i.ytimg.com/vi/_8EZOhpiUU4/hqdefault.jpg"
     },
     {
-        "number": 7,
-        "title": "Daily iiSU News: Day 7 (ft. @iisuAsian)",
-        "date": "2026-09-13",
+        "number": 8,
+        "title": "Daily iiSU News: Day 8 (ft. @iisuAsian)",
+        "date": "2026-09-14",
         "url": "https://www.youtube.com/watch?v=QNz9ePv_gDU",
         "videoId": "QNz9ePv_gDU",
         "thumbnail": "https://i.ytimg.com/vi/QNz9ePv_gDU/hqdefault.jpg"
+    },
+    {
+        "number": 9,
+        "title": "Daily iiSU News: Day 9",
+        "date": "2026-09-15",
+        "url": "https://www.youtube.com/watch?v=adyAZN_ESlQ",
+        "videoId": "adyAZN_ESlQ",
+        "thumbnail": "https://i.ytimg.com/vi/adyAZN_ESlQ/hqdefault.jpg"
     }
 ]
