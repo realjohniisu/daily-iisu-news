@@ -70,5 +70,13 @@
         "url": "https://www.youtube.com/watch?v=adyAZN_ESlQ",
         "videoId": "adyAZN_ESlQ",
         "thumbnail": "https://i.ytimg.com/vi/adyAZN_ESlQ/hqdefault.jpg"
+    },
+    {
+        "number": 10,
+        "title": "Daily iiSU News: Day 10",
+        "date": "2026-09-16",
+        "url": "https://www.youtube.com/watch?v=WcP7nw8yY0k",
+        "videoId": "WcP7nw8yY0k",
+        "thumbnail": "https://i.ytimg.com/vi/WcP7nw8yY0k/hqdefault.jpg"
     }
 ]
